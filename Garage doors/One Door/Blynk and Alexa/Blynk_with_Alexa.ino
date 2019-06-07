@@ -1,76 +1,46 @@
-/*
-
-  Programm to control one garage door of your house with Alexa voice control - Julien Muggli, 2018
-  Github link: https://github.com/Liozon/Alexa-and-Blynk
-
-  You'll need: a NodeMCU board, one relay switch and one reed switch
-  And of course: the Blynk app !
-
-  Links for product purchase:
-  NodeMCU: (eBay) http://tiny.cc/7mioly
-  Relay switch - pack of 5: (eBay) http://tiny.cc/npioly
-  Reed switch - pack of 5: (eBay) http://tiny.cc/pqioly
-  400 pins breadboards: (eBay) http://tiny.cc/ntioly
-  Jumper wires - 120 Pcs: (eBay) http://tiny.cc/rvioly
-
-  NodeMCU PIN connection:
-  D3 => connect to reed switch 1
-  D5 => connect to relay switch 1
-
-  Blynk app widgets:
-  LED: connect to PIN V1
-  Value display: connect to V0
-  Button: connect to D5
-
-  Configure Arduino IDE this way to communicate with this board:
-  Board type: NodeMCU 1.0 (ESP-12E Module)
-  Flash size: 4M (3M SPIFFS)
-  CPU Frequency: 80 MHz
-  Upload speed: 115200
-
-*/
-
-// Uncomment "#define BLYNK_PRINT Serial" for debug
+// Programme de domotique pour les garages de la maison - Julien Muggli, 2018
+// Décommenter "#define BLYNK_PRINT Serial" pour debug
 //#define BLYNK_PRINT Serial
-#define BLYNK_MAX_SENDBYTES 256 // Default notification characters limit is 128
-#include <ESP8266WiFi.h>
+#define BLYNK_MAX_SENDBYTES 256 // Augmentation du nombre de caractères pour les notifications
 #include <BlynkSimpleEsp8266.h>
 #include <SimpleTimer.h>
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+#include <WebSocketsClient.h> //  https://github.com/kakopappa/sinric/wiki/How-to-add-dependency-libraries
+#include <ArduinoJson.h>      // https://github.com/kakopappa/sinric/wiki/How-to-add-dependency-libraries (use the correct version)
+#include <StreamString.h>
 
-// Blynk Auth token
-char auth[] = "AUTH_TOKEN";
-
-// WiFi connection information
-// Set password to "" for open networks
-char ssid[] = "SSID";
-char pass[] = "Password";
-
-// Some useful declarations
-int power = LED_BUILTIN;
-int wifi = 2;
+// BLYNK -------------------------------------------------------------------------------------------------------
+char auth[] = "";
+// Informations de connexion au WiFi
+char ssid[] = "";
+char pass[] = "";
+// Diverses déclarations
+const int power = LED_BUILTIN;
+const int wifi = 2;
 bool isFirstConnect = true;
 WidgetLED led(V1);
-#define BLYNK_GREEN   "#23C48E"
-#define BLYNK_RED     "#D3435C"
-#define BLYNK_YELLOW  "#DDAD3B"
+#define BLYNK_GREEN "#23C48E"
+#define BLYNK_RED "#D3435C"
+#define BLYNK_YELLOW "#DDAD3B"
 SimpleTimer timer;
-
 // Variables will change:
 unsigned long lastPress1 = 0;
 unsigned long stateTime1 = 500; //runs until two seconds elapse
 
-// The NodeMCU onboard LED will blink in sequence when it's successfully connected to the Blynk server
-// (Useful when you install your project in your garage and you don't have access to the Arduino IDE serial monitor)
-// For the built-in LED on th NodeMCU, LOW = On and HIGH = Off
-BLYNK_CONNECTED() {
-  if (isFirstConnect) {
+// Indique si le NodeMCU est connecté au Wi-Fi et au serveur
+// (Utile une fois que l'on utilise plus le moniteur série de l'Arduino IDE)
+// Pour les LED sur le NodeMCU, LOW = On et HIGH = Off
+BLYNK_CONNECTED()
+{
+  if (isFirstConnect)
+  {
     digitalWrite(wifi, LOW);
     isFirstConnect = false;
     Blynk.virtualWrite(V0, "Checking status...");
     led.setColor(BLYNK_YELLOW);
-    // Not needed, but it will send you a push notification when it's connected. Useful if you reset the board or the Wi-Fi goes down when you're not at home.
-    // Uncomment if you want push notifications
-    //Blynk.notify("Garage doors connected to Wi-Fi !");
+    Blynk.notify("Le garage de la Lexus est connecté !");
     digitalWrite(wifi, LOW);
     delay(1000);
     digitalWrite(power, HIGH);
@@ -102,61 +72,212 @@ BLYNK_CONNECTED() {
     delay(100);
     digitalWrite(power, LOW);
     digitalWrite(wifi, LOW);
-    delay(100);
+    delay(500);
+    digitalWrite(power, HIGH);
+    digitalWrite(wifi, HIGH);
   }
 }
 
-void relayGarageLexus() {
-  if (digitalRead(D5)) lastPress1 = millis();
-  if (millis() - lastPress1 < stateTime1) {
+void relayGarageLexus()
+{
+  if (digitalRead(D5))
+    lastPress1 = millis();
+  if (millis() - lastPress1 < stateTime1)
+  {
     digitalWrite(D7, LOW);
-  } else {
+  }
+  else
+  {
     digitalWrite(D7, HIGH);
   }
 }
 
-void garageDoor() {
-  if (digitalRead(D3)) {
-    led.setColor(BLYNK_RED);  // Reed switch is open, D3 is HIGH
-    Serial.println("Garage car X is open");
-    Blynk.virtualWrite(V0, "Garage car X is open");
-
-  } else {
-
-    led.setColor(BLYNK_GREEN);  // Reed switch is closed, D3 is LOW
-    Serial.println("Garage car X is closed");
-    Blynk.virtualWrite(V0, "Garage car X is closed");
+void statutGarageLexus()
+{
+  if (digitalRead(D3))
+  {
+    led.setColor(BLYNK_RED); // Le reed switch est ouvert, D3 est HIGH
+    Serial.println("Lexus ouvert");
+    Blynk.virtualWrite(V0, "Garage Lexus ouvert");
+  }
+  else
+  {
+    led.setColor(BLYNK_GREEN); // Le reed switch est fermé, D3 est LOW
+    Serial.println("Lexus fermé");
+    Blynk.virtualWrite(V0, "Garage Lexus fermé");
   }
 }
 
-void setup()
-{
-  Serial.begin(9600);
-  pinMode(power, OUTPUT); // Build-in LED for power indication
-  pinMode(wifi, OUTPUT);  // Built-in LED for Wi-Fi indication
-  pinMode(D1, OUTPUT);
-  digitalWrite(D1, LOW);
-  digitalWrite(power, LOW); // Declaring power LED is On
-  digitalWrite(wifi, HIGH); // Declaring Wi-Fi LED is Off
-  digitalWrite(D7, HIGH); // Declaring the Relay is Off (to avoid the door to open when a reboot/power cut occurs)
-  pinMode(D7, OUTPUT);  // PIN connection for relay switch for garage door
-  pinMode(D3, INPUT_PULLUP);  // PIN connection to reed switch for garage
-  Blynk.begin(auth, ssid, pass);  // Connection to Wi-Fi
-  // You can also specify server:
-  //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 8442);
-  //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
+// SINRIC -------------------------------------------------------------------------------------------------------
+ESP8266WiFiMulti WiFiMulti;
+WebSocketsClient webSocket;
+WiFiClient client;
+#define HEARTBEAT_INTERVAL 300000 // 5 Minutes
+uint64_t heartbeatTimestamp = 0;
+bool isConnected = false;
+#define MyApiKey ""
+#define MySSID ""
+#define MyWifiPassword ""
+#define DEVICE1 ""
 
-  // Turning LED in the Blynk app on
-  led.on();
-  timer.setInterval(1500, garageDoor);
+void turnOn(String deviceId)
+{
+  if (deviceId == DEVICE1)
+  {
+    if (digitalRead(D3))
+    {
+      digitalWrite(D7, HIGH);
+    }
+    else
+    {
+      digitalWrite(D7, LOW);
+      delay(500);
+      digitalWrite(D7, HIGH);
+    }
+  }
 }
 
+void turnOff(String deviceId)
+{
+  if (deviceId == DEVICE1)
+  {
+    if (digitalRead(D3))
+    {
+      digitalWrite(D7, LOW);
+      delay(500);
+      digitalWrite(D7, HIGH);
+    }
+    else
+    {
+      digitalWrite(D7, HIGH);
+    }
+  }
+}
+
+void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
+{
+  switch (type)
+  {
+  case WStype_DISCONNECTED:
+    isConnected = false;
+    Serial.printf("[WSc] Webservice disconnected from sinric.com!\n");
+    break;
+  case WStype_CONNECTED:
+  {
+    isConnected = true;
+    Serial.printf("[WSc] Service connected to sinric.com at url: %s\n", payload);
+    Serial.printf("Waiting for commands from sinric.com ...\n");
+  }
+  break;
+  case WStype_TEXT:
+  {
+    Serial.printf("[WSc] get text: %s\n", payload);
+    // Example payloads
+
+    // For Switch or Light device types
+    // {"deviceId": xxxx, "action": "setPowerState", value: "ON"} // https://developer.amazon.com/docs/device-apis/alexa-powercontroller.html
+
+    // For Light device type
+    // Look at the light example in github
+
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &json = jsonBuffer.parseObject((char *)payload);
+    String deviceId = json["deviceId"];
+    String action = json["action"];
+
+    if (action == "setPowerState")
+    { // Switch or Light
+      String value = json["value"];
+      if (value == "ON")
+      {
+        turnOn(deviceId);
+      }
+      else
+      {
+        turnOff(deviceId);
+      }
+    }
+    else if (action == "test")
+    {
+      Serial.println("[WSc] received test command from sinric.com");
+    }
+  }
+  break;
+  case WStype_BIN:
+    Serial.printf("[WSc] get binary length: %u\n", length);
+    break;
+  }
+}
+
+// SETUP -------------------------------------------------------------------------------------------------------
+void setup()
+{
+  // BLYNK -------------------------------------------------------------------------------------------------------
+  pinMode(power, OUTPUT); // Déclaration LED alimentation
+  pinMode(wifi, OUTPUT);  // Déclaration LED WiFi
+  pinMode(D1, OUTPUT);
+  digitalWrite(D1, LOW);
+  digitalWrite(power, LOW);                                       // Déclaration LED alimentation est allumé
+  digitalWrite(wifi, HIGH);                                       // Déclaration LES WiFi est éteinte
+  digitalWrite(D7, HIGH);                                         // Relai en position Off si il y a un reboot
+  pinMode(D7, OUTPUT);                                            // Connection au relai du garage de la Lexus
+  pinMode(D3, INPUT_PULLUP);                                      // Connection au reed switch du garage de la Lexus
+  Blynk.begin(auth, ssid, pass, IPAddress(192, 168, 0, 1), 8080); // Connection au WiFi
+  // Allumage des LED, pour les voir dans l'app Blynk
+  led.on();
+  timer.setInterval(1500, statutGarageLexus);
+
+  // SINRIC -------------------------------------------------------------------------------------------------------
+  Serial.begin(115200);
+  WiFiMulti.addAP(MySSID, MyWifiPassword);
+  Serial.println();
+  Serial.print("Connecting to Wifi: ");
+  Serial.println(MySSID);
+  // Waiting for Wifi connect
+  while (WiFiMulti.run() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  if (WiFiMulti.run() == WL_CONNECTED)
+  {
+    Serial.println("");
+    Serial.print("WiFi connected. ");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+  // server address, port and URL
+  webSocket.begin("iot.sinric.com", 80, "/");
+  // event handler
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setAuthorization("apikey", MyApiKey);
+  // try again every 5000ms if connection has failed
+  webSocket.setReconnectInterval(5000); // If you see 'class WebSocketsClient' has no member named 'setReconnectInterval' error update arduinoWebSockets
+}
+
+// LOOP -------------------------------------------------------------------------------------------------------
 void loop()
 {
+  // BLYNK -------------------------------------------------------------------------------------------------------
   Blynk.run();
   timer.run();
-  if (WiFi.status() == 6) // This will check the Wi-Fi connection. If disconnected, it will reset the board (reboot it) until it's successfully connected to Wi-Fi
+  relayGarageLexus();
+  if (WiFi.status() == 6) // Check la connexion. Si deconnecté, alors il se reset jusqu'à ce que la connexion soit à nouveau établie
   {
     ESP.reset();
+  }
+
+  // SINRIC -------------------------------------------------------------------------------------------------------
+  webSocket.loop();
+  if (isConnected)
+  {
+    uint64_t now = millis();
+
+    // Send heartbeat in order to avoid disconnections during ISP resetting IPs over night. Thanks @MacSass
+    if ((now - heartbeatTimestamp) > HEARTBEAT_INTERVAL)
+    {
+      heartbeatTimestamp = now;
+      webSocket.sendTXT("H");
+    }
   }
 }
