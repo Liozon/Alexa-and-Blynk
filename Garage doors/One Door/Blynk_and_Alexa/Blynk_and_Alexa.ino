@@ -27,7 +27,7 @@ WidgetLED led(V1);
 SimpleTimer timer;
 // Timer for Blynk, the second timer will define how long Blynk will hold the relay closed for you
 unsigned long lastPress1 = 0;
-unsigned long stateTime1 = 500; //runs until two seconds elapse
+unsigned long stateTime1 = 500;
 
 // This small programm will notify you of the status of your NodeMCU.
 // (Really useful once your project is installed in your garage and you don't have access to a serial monitor)
