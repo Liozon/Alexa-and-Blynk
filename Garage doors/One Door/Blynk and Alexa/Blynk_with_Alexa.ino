@@ -12,10 +12,10 @@
 #include <StreamString.h>
 
 // BLYNK -------------------------------------------------------------------------------------------------------
-char auth[] = "";
+char auth[] = "YOUR_BLYNK_AUTH_CODE";
 // Informations de connexion au WiFi
-char ssid[] = "";
-char pass[] = "";
+char ssid[] = "YOUR_WIFI_SSID";
+char pass[] = "YOUR_WIFI_PASSWORD";
 // Diverses déclarations
 const int power = LED_BUILTIN;
 const int wifi = 2;
@@ -115,10 +115,10 @@ WiFiClient client;
 #define HEARTBEAT_INTERVAL 300000 // 5 Minutes
 uint64_t heartbeatTimestamp = 0;
 bool isConnected = false;
-#define MyApiKey ""
-#define MySSID ""
-#define MyWifiPassword ""
-#define DEVICE1 ""
+#define MyApiKey "YOUR_SINRIC_API_KEY"
+#define MySSID "YOUR_WIFI_SSID"
+#define MyWifiPassword "YOUR_WIFI_PASSWORD"
+#define DEVICE1 "YOUR_DEVICE_ID_FROM_SINRIC"
 
 void turnOn(String deviceId)
 {
