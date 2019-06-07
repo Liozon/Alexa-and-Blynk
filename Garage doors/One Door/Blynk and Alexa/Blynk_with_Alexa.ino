@@ -1,7 +1,7 @@
-// Programme de domotique pour les garages de la maison - Julien Muggli, 2018
-// Décommenter "#define BLYNK_PRINT Serial" pour debug
+// Adaptation of my Blynk project with Alexa - Julien Muggli, 2019
+// Uncomment "#define BLYNK_PRINT Serial" for debug
 //#define BLYNK_PRINT Serial
-#define BLYNK_MAX_SENDBYTES 256 // Augmentation du nombre de caractères pour les notifications
+#define BLYNK_MAX_SENDBYTES 256 // Raising notification character limit
 #include <BlynkSimpleEsp8266.h>
 #include <SimpleTimer.h>
 #include <Arduino.h>
@@ -13,10 +13,10 @@
 
 // BLYNK -------------------------------------------------------------------------------------------------------
 char auth[] = "YOUR_BLYNK_AUTH_CODE";
-// Informations de connexion au WiFi
+// Your WiFi information for Blynk
 char ssid[] = "YOUR_WIFI_SSID";
 char pass[] = "YOUR_WIFI_PASSWORD";
-// Diverses déclarations
+// Other declarations for Blynk
 const int power = LED_BUILTIN;
 const int wifi = 2;
 bool isFirstConnect = true;
@@ -25,13 +25,13 @@ WidgetLED led(V1);
 #define BLYNK_RED "#D3435C"
 #define BLYNK_YELLOW "#DDAD3B"
 SimpleTimer timer;
-// Variables will change:
+// Timer for Blynk, the second timer will define how long Blynk will hold the relay closed for you
 unsigned long lastPress1 = 0;
 unsigned long stateTime1 = 500; //runs until two seconds elapse
 
-// Indique si le NodeMCU est connecté au Wi-Fi et au serveur
-// (Utile une fois que l'on utilise plus le moniteur série de l'Arduino IDE)
-// Pour les LED sur le NodeMCU, LOW = On et HIGH = Off
+// This small programm will notify you of the status of your NodeMCU.
+// (Really useful once your project is installed in your garage and you don't have access to a serial monitor)
+// It's blink the buil-in LED on the NodeMCU when connected to your WiFi and turn off after.
 BLYNK_CONNECTED()
 {
   if (isFirstConnect)
@@ -40,7 +40,8 @@ BLYNK_CONNECTED()
     isFirstConnect = false;
     Blynk.virtualWrite(V0, "Checking status...");
     led.setColor(BLYNK_YELLOW);
-    Blynk.notify("Le garage de la Lexus est connecté !");
+    // Please enable the notification widget in your Blynk project to get this notification
+    Blynk.notify("Your garage is connected");
     digitalWrite(wifi, LOW);
     delay(1000);
     digitalWrite(power, HIGH);
@@ -96,15 +97,15 @@ void statutGarageLexus()
 {
   if (digitalRead(D3))
   {
-    led.setColor(BLYNK_RED); // Le reed switch est ouvert, D3 est HIGH
-    Serial.println("Lexus ouvert");
-    Blynk.virtualWrite(V0, "Garage Lexus ouvert");
+    led.setColor(BLYNK_RED); // Reed switch is open, D3 is HIGH
+    Serial.println("Garage open");
+    Blynk.virtualWrite(V0, "Garage door open");
   }
   else
   {
-    led.setColor(BLYNK_GREEN); // Le reed switch est fermé, D3 est LOW
-    Serial.println("Lexus fermé");
-    Blynk.virtualWrite(V0, "Garage Lexus fermé");
+    led.setColor(BLYNK_GREEN); // Reed switch is closed, D3 is LOW
+    Serial.println("Garage closed");
+    Blynk.virtualWrite(V0, "Garage door closed");
   }
 }
 
@@ -213,17 +214,18 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
 void setup()
 {
   // BLYNK -------------------------------------------------------------------------------------------------------
-  pinMode(power, OUTPUT); // Déclaration LED alimentation
-  pinMode(wifi, OUTPUT);  // Déclaration LED WiFi
+  pinMode(power, OUTPUT); // Declaration for the built-in LED
+  pinMode(wifi, OUTPUT);
   pinMode(D1, OUTPUT);
   digitalWrite(D1, LOW);
-  digitalWrite(power, LOW);                                       // Déclaration LED alimentation est allumé
-  digitalWrite(wifi, HIGH);                                       // Déclaration LES WiFi est éteinte
-  digitalWrite(D7, HIGH);                                         // Relai en position Off si il y a un reboot
-  pinMode(D7, OUTPUT);                                            // Connection au relai du garage de la Lexus
-  pinMode(D3, INPUT_PULLUP);                                      // Connection au reed switch du garage de la Lexus
-  Blynk.begin(auth, ssid, pass, IPAddress(192, 168, 0, 1), 8080); // Connection au WiFi
-  // Allumage des LED, pour les voir dans l'app Blynk
+  digitalWrite(power, LOW);
+  digitalWrite(wifi, HIGH);
+  digitalWrite(D7, HIGH);
+  pinMode(D7, OUTPUT);
+  pinMode(D3, INPUT_PULLUP);
+  Blynk.begin(auth, ssid, pass, IPAddress(192, 168, 0, 1), 8080); // Connection to your Blynk Server (if you have one)
+  // If you don't have a Blynk Server, please comment the line above and uncomment the line below
+  //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 80);
   led.on();
   timer.setInterval(1500, statutGarageLexus);
 
@@ -262,7 +264,7 @@ void loop()
   Blynk.run();
   timer.run();
   relayGarageLexus();
-  if (WiFi.status() == 6) // Check la connexion. Si deconnecté, alors il se reset jusqu'à ce que la connexion soit à nouveau établie
+  if (WiFi.status() == 6) // This is to check if the NodeMCU is still connected to your WiFi. If not, it'll reset itself and reboot until the connection is back
   {
     ESP.reset();
   }
